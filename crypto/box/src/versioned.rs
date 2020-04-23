@@ -168,8 +168,8 @@ pub enum VersionError {
 #[cfg(test)]
 mod test {
     use super::*;
-    use mc_util_from_random::FromRandom;
     use keys::{RistrettoPrivate, RistrettoPublic};
+    use mc_util_from_random::FromRandom;
 
     extern crate test_helper;
 
