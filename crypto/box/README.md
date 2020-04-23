@@ -14,7 +14,7 @@ using `VersionedCryptoBox::select_version`, to ensure compatibility with the rec
 Otherwise you can `default()` to the latest version.
 
 To encrypt or decrypt, use the `CryptoBox` trait and exercise the `encrypt` or
-`decrypt` APIs or their variations.
+`decrypt` APIs or their variations. (You need Ristretto curve points for the default object.)
 
 Encryption takes an rng, a public key, and a message, and produces a "cryptogram",
 which includes the ciphertext, an ephemeral public key, an aes mac value, and a small versioning tag.
@@ -24,8 +24,8 @@ Decryption takes the private key and the cryptogram and repoduces the message.
 Properties
 ----------
 
-The scheme aims for semantic security at a 128-bit security level, and non-malleability
-of the cryptograms. The primitives used at current version are:
+The `VersionedCryptoBox` object aims for semantic security at a 128-bit security level,
+and non-malleability of the cryptograms. The primitives used at current version are:
 
 - Ristretto elliptic curve (`curve25519-dalek` crate) for key exchange
 - HKDF + Blake2b for the KDF step
@@ -33,6 +33,22 @@ of the cryptograms. The primitives used at current version are:
 
 The wire-format is intended to be stable, with forwards and backwards compatibility
 if we must change the primitives.
+
+Extensibility
+-------------
+
+Although `VersionedCryptoBox` uses specific primitives, the traits and components
+in this crate could be used to instantiate any variation of Cryptobox.
+
+- `CryptoBox` trait is generic over a `Kex`
+- The `HkdfBox` object is generic over a `Kex`, a `Digest`, and an `Aead`.
+  This object checks at built-time that the assembly is correct -- that is,
+  that the keys and nonces generated for the `Aead` will have sufficient entropy,
+  given the entropy produced by the `Kex::Secret` and assuming that the security
+  anlaysis of `Hkdf` with respect to `Digest` holds.
+
+This crate is a fully generic implementation of a CryptoBox-like scheme, which
+can use any elliptic curve / key exchange method ("Kex"), 
 
 Comparison to related schemes
 -----------------------------

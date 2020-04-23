@@ -14,15 +14,19 @@ use hkdf::Hkdf;
 use keys::{GetBytes, Kex, KexSecret, PublicKey};
 use rand_core::{CryptoRng, RngCore};
 
-/// Represents an implementation of Ristretto-Box using Hkdf<Blake2b> and Aes128Gcm
+/// Represents a generic implementation of CryptoBox using Hkdf, a KexAlgo, and an Aead.
 ///
 /// This structure contains the actual cryptographic primitive details, and
 /// specifies part of the wire format of the "footer" where the ephemeral
 /// public key comes first, and the mac comes second.
 ///
-/// Note: If when instantiating this, the IsLessOrEqual bounds fail,
-/// it may indicate that your Kex algorithm does not supply enough entropy to properly
-/// drive the Aead algorithm that you have chosen, and so the combination would be insecure.
+/// Preconditions:
+/// - Only stateless AEAD is supported. The build will fail if you only have AeadMut.
+/// - The AEAD::NonceSize and KeySize must be <= the entropy reported by the Kex::Secret.
+///   If this is not true, the construction is likely broken / insecure, you will not have
+///   the security level promised by e.g. Aes256Gcm if you can only provide 128 bits or
+///   less of entropy.
+///   The IsLessOrEqual trait bounds enforce this check.
 pub struct HkdfBox<KexAlgo, DigestAlgo, AeadAlgo>
 where
     KexAlgo: Kex,
@@ -124,9 +128,7 @@ where
     Sum<<KexAlgo::Public as PublicKey>::Size, AeadAlgo::TagSize>: ArrayLength<u8>,
 {
     /// KDF part, factored out to avoid duplication
-    /// This part must produce the key and IV/nonce for aes-gcm
-    /// Blake2b produces 64 bytes of private key material which is more than we need,
-    /// so we don't do the HKDF-EXPAND step.
+    /// This part must produce the key and IV/nonce for Aead, from the IKM, using Hkdf.
     fn kdf_step(
         dh_secret: &KexAlgo::Secret,
     ) -> (
