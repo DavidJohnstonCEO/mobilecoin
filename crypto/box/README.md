@@ -47,8 +47,9 @@ in this crate could be used to instantiate any variation of Cryptobox.
   given the entropy produced by the `Kex::Secret` and assuming that the security
   anlaysis of `Hkdf` with respect to `Digest` holds.
 
-This crate is a fully generic implementation of a CryptoBox-like scheme, which
-can use any elliptic curve / key exchange method ("Kex"), 
+Thus, you could easily use this to assemble your own CryptoBox-like scheme, with
+different elliptic curves and ciphers, or to write code that is generic against
+such a scheme.
 
 Comparison to related schemes
 -----------------------------
