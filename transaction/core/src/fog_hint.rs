@@ -7,9 +7,12 @@ use crate::{
     encrypted_fog_hint::{EncryptedFogHint, EncryptedFogHintSize},
 };
 use core::convert::TryFrom;
-use keys::{CompressedRistrettoPublic, RistrettoPrivate, RistrettoPublic, RISTRETTO_PUBLIC_LEN};
+use keys::{CompressedRistrettoPublic, PublicKey, Ristretto, RistrettoPrivate, RistrettoPublic};
 use mc_crypto_box::{
-    generic_array::{typenum::Diff, GenericArray},
+    generic_array::{
+        typenum::{Diff, Unsigned},
+        GenericArray,
+    },
     CryptoBox, Error as CryptoBoxError, VersionedCryptoBox,
 };
 use mcserial::ReprBytes32;
@@ -23,6 +26,9 @@ pub struct FogHint {
 // When account hints are encrypted we pad with a magic number in order to
 // detect more easily when decryption failed
 const MAGIC_NUMBER: u8 = 42;
+
+// Save ourselves some typing
+const RISTRETTO_PUBLIC_LEN: usize = <RistrettoPublic as PublicKey>::Size::USIZE;
 
 // Construct a (plaintext) FogHint appropriate to send to a PublicAddress
 impl From<&PublicAddress> for FogHint {
@@ -44,7 +50,7 @@ impl FogHint {
             view_pubkey: CompressedRistrettoPublic::try_from(bytes).map_err(CryptoBoxError::Key)?,
         })
     }
-    pub fn to_bytes(&self) -> [u8; keys::RISTRETTO_PUBLIC_LEN] {
+    pub fn to_bytes(&self) -> [u8; RISTRETTO_PUBLIC_LEN] {
         self.view_pubkey.to_bytes()
     }
 
@@ -75,7 +81,7 @@ impl FogHint {
     ) -> EncryptedFogHint {
         let mut plaintext = GenericArray::<
             u8,
-            Diff<EncryptedFogHintSize, <VersionedCryptoBox as CryptoBox>::FooterSize>,
+            Diff<EncryptedFogHintSize, <VersionedCryptoBox as CryptoBox<Ristretto>>::FooterSize>,
         >::default();
         plaintext.as_mut()[..RISTRETTO_PUBLIC_LEN].copy_from_slice(&self.view_pubkey.to_bytes());
         for byte in &mut plaintext.as_mut()[RISTRETTO_PUBLIC_LEN..] {

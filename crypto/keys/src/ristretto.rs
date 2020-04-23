@@ -9,13 +9,13 @@ use core::{
     convert::{AsRef, TryFrom, TryInto},
     fmt::{Debug, Display, Formatter, Result as FmtResult},
     hash::{Hash, Hasher},
-    mem::size_of,
 };
 use curve25519_dalek::{
     constants::RISTRETTO_BASEPOINT_POINT,
     ristretto::{CompressedRistretto, RistrettoPoint},
     scalar::Scalar,
 };
+use digest::generic_array::typenum::{U31, U32};
 use digestible::Digestible;
 use hex_fmt::HexFmt;
 use mc_util_from_random::FromRandom;
@@ -126,9 +126,6 @@ impl KexPrivate for RistrettoPrivate {
 #[derive(Clone, Copy, Default, Digestible)]
 pub struct RistrettoPublic(pub(crate) RistrettoPoint);
 
-/// The length of Ristretto Public in bytes on the wire
-pub const RISTRETTO_PUBLIC_LEN: usize = size_of::<CompressedRistretto>();
-
 impl AsRef<RistrettoPoint> for RistrettoPublic {
     fn as_ref(&self) -> &RistrettoPoint {
         &self.0
@@ -167,6 +164,13 @@ serde_helper32! { RistrettoPublic }
 prost_message_helper32! { RistrettoPublic }
 try_from_helper32! { RistrettoPublic }
 
+impl GetBytes for RistrettoPublic {
+    type Output = [u8; 32];
+    fn get_bytes(&self) -> [u8; 32] {
+        self.0.compress().to_bytes()
+    }
+}
+
 impl Into<Vec<u8>> for RistrettoPublic {
     fn into(self) -> Vec<u8> {
         self.0.compress().as_bytes().to_vec()
@@ -200,9 +204,7 @@ impl PartialEq for RistrettoPublic {
 }
 
 impl PublicKey for RistrettoPublic {
-    fn size() -> usize {
-        RISTRETTO_PUBLIC_LEN
-    }
+    type Size = U32;
 }
 
 impl From<&RistrettoPrivate> for RistrettoPublic {
@@ -271,7 +273,9 @@ impl AsRef<[u8; 32]> for RistrettoSecret {
     }
 }
 
-impl KexSecret for RistrettoSecret {}
+impl KexSecret for RistrettoSecret {
+    type EntropyLowerBound = U31;
+}
 
 /// This is a newtype wrapper around CompressedRistretto, which implements
 /// From<RistrettoPublic>, and serialization / digest implementations.
@@ -370,9 +374,18 @@ prost_message_helper32! { CompressedRistrettoPublic }
 try_from_helper32! { CompressedRistrettoPublic }
 
 impl PublicKey for CompressedRistrettoPublic {
-    fn size() -> usize {
-        core::mem::size_of::<Self>()
-    }
+    type Size = U32;
+}
+
+/// A zero-width type used to identify the Ristretto key exchange system.
+pub struct Ristretto {}
+
+/// The implementation of the Ristretto key exchange system.
+impl Kex for Ristretto {
+    type Public = RistrettoPublic;
+    type Private = RistrettoPrivate;
+    type EphemeralPrivate = RistrettoPrivate;
+    type Secret = RistrettoSecret;
 }
 
 #[cfg(test)]

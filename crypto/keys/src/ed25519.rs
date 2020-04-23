@@ -10,7 +10,7 @@ use alloc::vec;
 use crate::traits::*;
 use alloc::vec::Vec;
 use core::convert::TryFrom;
-use digest::generic_array::typenum::U64;
+use digest::generic_array::typenum::{U32, U64};
 use digestible::Digestible;
 use ed25519::signature::{DigestSigner, DigestVerifier, Error as SignatureError, Signer, Verifier};
 use ed25519_dalek::{
@@ -176,9 +176,7 @@ impl Into<Vec<u8>> for Ed25519Public {
 }
 
 impl PublicKey for Ed25519Public {
-    fn size() -> usize {
-        ed25519_dalek::PUBLIC_KEY_LENGTH
-    }
+    type Size = U32;
 }
 
 impl Verifier<Ed25519Signature> for Ed25519Public {
@@ -192,11 +190,11 @@ impl Verifier<Ed25519Signature> for Ed25519Public {
 }
 
 impl TryFrom<&[u8]> for Ed25519Public {
-    type Error = SignatureError;
+    type Error = KeyError;
 
     fn try_from(src: &[u8]) -> Result<Self, Self::Error> {
         Ok(Self(
-            DalekPublicKey::from_bytes(src).map_err(|_e| SignatureError::new())?,
+            DalekPublicKey::from_bytes(src).map_err(|_e| KeyError::InvalidPublicKey)?,
         ))
     }
 }
@@ -359,6 +357,7 @@ impl Verifier<Ed25519Signature> for Ed25519Pair {
 #[cfg(test)]
 mod ed25519_tests {
     use super::*;
+    use digest::generic_array::typenum::Unsigned;
     use digestible::Digestible;
     use rand_core::SeedableRng;
     use rand_hc::Hc128Rng;
@@ -405,6 +404,16 @@ mod ed25519_tests {
         data.digest(&mut hasher);
         pair.verify_digest(hasher, &sig)
             .expect("Failed to validate digest signature");
+    }
+
+    // Test that our (typenum) constant for the size of Ed25519 matches the published constant
+    // in the dalek interface.
+    #[test]
+    fn test_key_len() {
+        assert_eq!(
+            ed25519_dalek::PUBLIC_KEY_LENGTH,
+            <Ed25519Public as PublicKey>::Size::USIZE
+        );
     }
 
     ////

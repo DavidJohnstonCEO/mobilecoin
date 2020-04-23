@@ -14,7 +14,7 @@ use core::convert::{TryFrom, TryInto};
 use digest::{BlockInput, Digest, FixedOutput, Input, Reset};
 use failure::Fail;
 use generic_array::typenum::Unsigned;
-use keys::{Kex, KexReusablePrivate, PublicKey};
+use keys::{GetBytes, Kex, KexReusablePrivate, PublicKey};
 use mc_util_from_random::FromRandom;
 use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
@@ -178,26 +178,26 @@ where
                 symmetric_state.mix_hash(
                     initiator_identity
                         .ok_or(HandshakeError::MissingInitiatorIdentity)?
-                        .as_ref(),
+                        .get_bytes(),
                 );
             }
             PreMessageToken::Ephemeral => {
                 symmetric_state.mix_hash(
                     initiator_ephemeral
                         .ok_or(HandshakeError::MissingInitiatorEphemeral)?
-                        .as_ref(),
+                        .get_bytes(),
                 );
             }
             PreMessageToken::EphemeralStatic => {
                 symmetric_state.mix_hash(
                     initiator_ephemeral
                         .ok_or(HandshakeError::MissingInitiatorEphemeral)?
-                        .as_ref(),
+                        .get_bytes(),
                 );
                 symmetric_state.mix_hash(
                     initiator_identity
                         .ok_or(HandshakeError::MissingInitiatorIdentity)?
-                        .as_ref(),
+                        .get_bytes(),
                 );
             }
             PreMessageToken::None => {}
@@ -208,26 +208,26 @@ where
                 symmetric_state.mix_hash(
                     responder_identity
                         .ok_or(HandshakeError::MissingResponderIdentity)?
-                        .as_ref(),
+                        .get_bytes(),
                 );
             }
             PreMessageToken::Ephemeral => {
                 symmetric_state.mix_hash(
                     responder_ephemeral
                         .ok_or(HandshakeError::MissingResponderEphemeral)?
-                        .as_ref(),
+                        .get_bytes(),
                 );
             }
             PreMessageToken::EphemeralStatic => {
                 symmetric_state.mix_hash(
                     responder_ephemeral
                         .ok_or(HandshakeError::MissingResponderEphemeral)?
-                        .as_ref(),
+                        .get_bytes(),
                 );
                 symmetric_state.mix_hash(
                     responder_identity
                         .ok_or(HandshakeError::MissingResponderIdentity)?
-                        .as_ref(),
+                        .get_bytes(),
                 );
             }
             PreMessageToken::None => {}

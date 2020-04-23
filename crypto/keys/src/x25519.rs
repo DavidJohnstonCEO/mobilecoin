@@ -17,6 +17,7 @@ use core::{
     fmt::{Debug, Error as FmtError, Formatter, Result as FmtResult},
     str::from_utf8,
 };
+use digest::generic_array::typenum::{U31, U32};
 use digestible::Digestible;
 use mc_util_from_random::FromRandom;
 use mcserial::deduce_core_traits_from_public_bytes;
@@ -32,7 +33,9 @@ use zeroize::Zeroize;
 /// A structure for keeping an X25519 shared secret
 pub struct X25519Secret(SharedSecret);
 
-impl KexSecret for X25519Secret {}
+impl KexSecret for X25519Secret {
+    type EntropyLowerBound = U31;
+}
 
 /// A shared secret can be used as a byte slice
 impl AsRef<[u8]> for X25519Secret {
@@ -92,9 +95,7 @@ const X25519_SPKI_DER_PREFIX: [u8; 12] = [
 const X25519_SPKI_DER_LEN: usize = 0x02 + 0x2A;
 
 impl PublicKey for X25519Public {
-    fn size() -> usize {
-        32
-    }
+    type Size = U32;
 }
 
 impl DistinguishedEncoding for X25519Public {
@@ -184,6 +185,29 @@ impl AsRef<[u8]> for X25519Public {
     /// ```
     fn as_ref(&self) -> &[u8] {
         self.0.as_bytes()
+    }
+}
+
+// GetBytes is needed by the Kex trait.
+impl GetBytes for X25519Public {
+    // FIXME: It would be nice to have Output = &'a [u8] here,
+    // but it causes quite subtle problems with lifetimes, and `impl<'a>` does
+    // not fix this.
+    //
+    // Copying these bytes instead of returning a reference directly for X25519
+    // is a slight perf loss.
+    // Since the key is a public key, and the bytes are not e.g. in a SecretVec,
+    // making an extra copy of them doesn't seem so bad.
+    // The copy might be inlined by llvm if the optimizer can see that it's an
+    // unneeded copy.
+    //
+    // We could make the GetBytes trait more complicated, at the cost of usability
+    // and maintainability. If we try to force RistrettoPublic to maintain the
+    // canonical representation in lockstep at all times, that will cause significant
+    // perf hits to ristretto.
+    type Output = [u8; 32];
+    fn get_bytes(&self) -> [u8; 32] {
+        self.0.as_bytes().clone()
     }
 }
 

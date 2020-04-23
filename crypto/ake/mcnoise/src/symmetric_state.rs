@@ -138,8 +138,8 @@ where
     ///
     /// Updates our hash to reflect a new hash of itself and the provided
     /// data.
-    pub fn mix_hash(&mut self, data: &[u8]) {
-        self.hash += data;
+    pub fn mix_hash<D: AsRef<[u8]>>(&mut self, data: D) {
+        self.hash += data.as_ref();
     }
 
     /// The noise framework `MixKeyAndHash()` operation.

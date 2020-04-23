@@ -12,7 +12,7 @@ use alloc::vec::Vec;
 use attest::{QuoteSignType, ReportDataMask, VerificationReport};
 use core::convert::TryFrom;
 use digest::{BlockInput, Digest, FixedOutput, Input, Reset};
-use keys::Kex;
+use keys::{GetBytes, Kex};
 use mcnoise::{
     HandshakeIX, HandshakeNX, HandshakePattern, HandshakeState, HandshakeStatus, NoiseCipher,
     ProtocolName,
@@ -159,6 +159,7 @@ where
                 handshake_state
                     .remote_identity()
                     .ok_or(Error::MissingRemoteIdentity)?
+                    .get_bytes()
                     .as_ref(),
             )
             .map_err(|_e| Error::BadRemoteIdentity)?,

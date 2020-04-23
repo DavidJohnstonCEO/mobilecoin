@@ -10,6 +10,7 @@ use alloc::vec;
 
 use alloc::{string::String, vec::Vec};
 use core::{convert::TryFrom, fmt::Debug, hash::Hash};
+use digest::generic_array::{typenum::Unsigned, ArrayLength};
 use digestible::Digestible;
 use failure::Fail;
 use mc_util_from_random::FromRandom;
@@ -41,6 +42,22 @@ impl From<LengthMismatch32> for KeyError {
     fn from(src: LengthMismatch32) -> Self {
         KeyError::LengthMismatch(src.0, 32)
     }
+}
+
+/// A trait for an object which is representable as canonical bytes.
+///
+/// This must be general enough to support both X25519Public and RistrettoPublic,
+/// an X25519 object already implements AsRef<[u8]>, but RistrettoPublic cannot,
+/// it must be compressed before you can get a reference to bytes.
+///
+/// This trait attempts to bridge this gap, using a zero-cost abstraction.
+/// An object like X25519 can have GetBytes::Result = &[u8],
+/// and this object already implements AsRef<[u8]>, which can be inlined to a no-op.
+/// An object like Ristretto can have GetBytes::Result = [u8; 32] or similar.
+pub trait GetBytes {
+    type Output: AsRef<[u8]>;
+
+    fn get_bytes(&self) -> Self::Output;
 }
 
 /// A trait indicating that a key can be read/written as ASN.1 using the
@@ -106,10 +123,15 @@ pub trait PublicKey:
     + Ord
     + Serialize
     + Sized
-    + for<'bytes> TryFrom<&'bytes [u8]>
+    + for<'bytes> TryFrom<&'bytes [u8], Error = KeyError>
 {
+    /// A typenum representing the fixed-length of a canonical representation
+    /// of the public key.
+    type Size: ArrayLength<u8> + Unsigned;
     /// Retrieve the size of this public key's raw bytes.
-    fn size() -> usize;
+    fn size() -> usize {
+        Self::Size::USIZE
+    }
 }
 
 /// A trait for all public key types to implement.
@@ -119,8 +141,22 @@ pub trait PrivateKey: Debug + Sized + FromRandom {
 
 /// A dependency trait for shared secret implementations
 ///
-/// Objects which implement this can be stored, but not loaded.
-pub trait KexSecret: AsRef<[u8]> + Debug + Serialize + Sized {}
+/// Objects which implement this can be read as bytes, but not copied or serialized.
+pub trait KexSecret: AsRef<[u8]> + Debug + Sized {
+    /// A lower bound on the number of bytes of entropy in the KexSecret,
+    /// when key exchange has been performed correctly.
+    ///
+    /// This is typically the number of bytes in the representation of a curve point
+    /// minus one -- it cannot have full entropy because it satisfies the curve equation.
+    ///
+    /// If e.g. a KDF is applied and this is used to drive an AEAD, then the key size
+    /// of the AEAD should be less than this bound, or it is likely an
+    /// unsound configuration -- the AEAD is not getting as much entropy as it needs.
+    type EntropyLowerBound: Unsigned;
+    fn entropy_lower_bound() -> usize {
+        Self::EntropyLowerBound::USIZE
+    }
+}
 
 /// A marker trait for public keys to be used in key exchange
 pub trait KexPublic: PublicKey
@@ -195,7 +231,7 @@ where
 pub trait Kex {
     type Public: KexPublic<KexEphemeralPrivate = Self::EphemeralPrivate>
         + for<'reusable> From<&'reusable Self::Private>
-        + AsRef<[u8]>;
+        + GetBytes;
     type Private: KexReusablePrivate
         + PrivateKey<Public = Self::Public>
         + KexPrivate<Secret = Self::Secret>;
