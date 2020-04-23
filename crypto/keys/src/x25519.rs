@@ -207,7 +207,7 @@ impl GetBytes for X25519Public {
     // perf hits to ristretto.
     type Output = [u8; 32];
     fn get_bytes(&self) -> [u8; 32] {
-        self.0.as_bytes().clone()
+        *self.0.as_bytes()
     }
 }
 
